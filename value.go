@@ -2,6 +2,7 @@ package otto
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"math"
 	"reflect"
 	"strconv"
@@ -122,6 +123,7 @@ func (value Value) call(this Value, argumentList ...interface{}) Value {
 	case *_object:
 		return function.Call(this, argumentList...)
 	}
+	spew.Dump(1)
 	panic(newTypeError())
 }
 
@@ -138,6 +140,7 @@ func (value Value) construct(this Value, argumentList ...interface{}) Value {
 	case *_object:
 		return function.Construct(this, argumentList...)
 	}
+	spew.Dump(2)
 	panic(newTypeError())
 }
 
@@ -352,12 +355,23 @@ func toValue(value interface{}) Value {
 		case reflect.String:
 			return Value{valueString, string(value.String())}
 		default:
+			if !value.IsValid() {
+				return UndefinedValue()
+			}
+			value = reflect.Indirect(value)
+			if (value.Kind() == reflect.Chan ||
+				value.Kind() == reflect.Func ||
+				value.Kind() == reflect.Map ||
+				value.Kind() == reflect.Ptr ||
+				value.Kind() == reflect.Slice) && value.IsNil() {
+				return UndefinedValue()
+			}
+
 			toValue_reflectValuePanic(value.Interface(), value.Kind())
 		}
 	default:
 		{
-			value := reflect.Indirect(reflect.ValueOf(value))
-			toValue_reflectValuePanic(value.Interface(), value.Kind())
+			return toValue(reflect.ValueOf(value))
 		}
 	}
 	panic(newTypeError("Invalid value: Unsupported: %v (%T)", value, value))
